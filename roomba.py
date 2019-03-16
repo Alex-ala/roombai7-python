@@ -1,7 +1,9 @@
-import threading
 import paho.mqtt.client as mqtt
 import ssl
 import logging
+import json
+from time import time
+
 
 class Config(object):
     def __init__(self, address, blid, password,
@@ -32,11 +34,6 @@ class Roomba(object):
               "hmPostMsn": "End Mission",
               "disconnected": "Disconnected",
               "":  None}
-    bin_states = {
-        0: "Empty",
-        1: "Full",
-        2: "Removed"
-    }
 
     _ErrorMessages = {
         0: "None",
@@ -96,11 +93,7 @@ class Roomba(object):
         self.log = logging.getLogger("roomba.__main__")
         self.config = Config(address, blid, password, continuous=continuous)
         self.mqtt_client = None
-        self.state = None
-        self.position = (0, 0, 0)
-        self.battery_level = 0
-        self.bin_state = 0
-        self.thread = None
+        self.state = dict()
 
     '''Initiate MQTT connection'''
     def connect(self):
@@ -128,17 +121,60 @@ class Roomba(object):
             try:
                 self.mqtt_client.connect(self.config.address, 8883, 60)
                 self.mqtt_client.loop_start()
-            except:
-                self.log.error("Error connecting to Roomba")
+                # self.mqtt_client.loop_forever()
+            except Exception as e:
+                self.log.error("Error connecting to Roomba: "+str(e))
                 return False
 
+    def disconnect(self):
+        self.mqtt_client.disconnect()
+
     def on_message(self, client, userdata, message):
-        print(message)
+        try:
+            new_state = json.loads(message.payload.decode(' UTF-8'))['state']['reported']
+            self.state.update(new_state)
+        except Exception as e:
+            print('Error reading message from robot: '+str(e)+'---'+message.payload.decode(' UTF-8'))
 
     def on_connect(self, client, userdata, flags, rc):
         if rc != 0:
-            self.log.error("Error connecting to Roomba MQTT")
+            print("Error connecting to Roomba MQTT")
 
     def on_disconnect(self, client, userdata, rc):
         self.state = self.states["disconnected"]
 
+    def _send_command(self, topic, command):
+        message = dict()
+        message['initiator'] = 'localApp'
+        message['time'] = int(time())
+        if topic == 'delta':
+            message['state'] = command
+        else:
+            message['command'] = command
+        print(json.dumps(message))
+        self.mqtt_client.publish(topic, json.dumps(message))
+
+    def send_command(self, command):
+        self._send_command('cmd', command)
+
+    def send_property(self, properties):
+        self._send_command('delta', properties)
+
+    def enable_internal_mapping(self):
+        self.send_property(json.loads('{"pmapLearningAllowed": true, "mapUploadAllowed": true}'))
+
+    def start_training(self):
+        if self.state['pmapLearningAllowed']:
+            self.send_command('train')
+            return True
+        else:
+            return False
+
+    def start_cleaning(self):
+        self.send_command('clean')
+
+    def stop(self):
+        self.send_command('stop')
+
+    def pause(self):
+        self.send_command('pause')
