@@ -18,7 +18,7 @@ class Config(object):
 
 
 class Roomba(object):
-    states = {"charge": "Charging",
+    cycles = {"charge": "Charging",
               "new": "New Mission",
               "run": "Running",
               "resume": "Running",
@@ -94,6 +94,7 @@ class Roomba(object):
         self.config = Config(address, blid, password, continuous=continuous)
         self.mqtt_client = None
         self.state = dict()
+        self.connected = False
 
     '''Initiate MQTT connection'''
     def connect(self):
@@ -129,7 +130,12 @@ class Roomba(object):
     def disconnect(self):
         self.mqtt_client.disconnect()
 
+    def reconnect(self):
+        self.disconnect()
+        self.connect()
+
     def on_message(self, client, userdata, message):
+        print(message.payload.decode('UTF-8'))
         try:
             new_state = json.loads(message.payload.decode(' UTF-8'))['state']['reported']
             self.state.update(new_state)
@@ -139,6 +145,9 @@ class Roomba(object):
     def on_connect(self, client, userdata, flags, rc):
         if rc != 0:
             print("Error connecting to Roomba MQTT")
+            self.connected = False
+        else:
+            self.connected = True
 
     def on_disconnect(self, client, userdata, rc):
         self.state = self.states["disconnected"]
@@ -151,7 +160,6 @@ class Roomba(object):
             message['state'] = command
         else:
             message['command'] = command
-        print(json.dumps(message))
         self.mqtt_client.publish(topic, json.dumps(message))
 
     def send_command(self, command):
@@ -160,8 +168,138 @@ class Roomba(object):
     def send_property(self, properties):
         self._send_command('delta', properties)
 
-    def enable_internal_mapping(self):
-        self.send_property(json.loads('{"pmapLearningAllowed": true, "mapUploadAllowed": true}'))
+    # Set settings
+
+    '''
+    :param enable: Enable internal mapping feature
+    This requires (and sets) to allow upload of the data to cloud. Your Roomba will upload map data into Roomba AWS.
+    This feature also works offline if You prevent map upload via firewall. You wont have access to the internal map,
+    but Your Roomba still learns the area. 
+    '''
+    def set_internal_mapping(self, enable):
+        state = {'pmapLearningAllowed': enable, 'mapUploadAllowed': enable}
+        self.send_property(state)
+
+    def set_two_passes(self, enable):
+        state = {"twoPass": enable, "noAutoPasses": not enable}
+        self.send_property(state)
+
+    def set_stop_on_full_bin(self, enable):
+        state = {"binPause": enable}
+        self.send_property(state)
+
+    def set_audio(self, enable):
+        state = {"audio": {"active": enable}}
+        self._send_command('delta', state)
+
+    '''
+    :param language: Language ID supported by Roomba like en-GB en-US de-DE etc
+    '''
+    def set_language(self, language):
+        if language in self.state['langs']:
+            state = {"language": self.state['langs'][language]}
+            self.send_property(state)
+        else:
+            return False
+
+    '''
+    :param start_times_with_params: Cleaning Schedule in the following form:
+    {
+        "cmd": {
+            "command": "start",             # I dont know if this is modifiable
+            "params": {
+                "carpetBoost": false,       # Enable vacuum boost on carpets
+                "noAutoPasses": false,      # Disable automatic decision whether to clean an area twice
+                "twoPass": false,           # Clean every area twice
+                "openOnly": true,           # Do not clean edges and close to walls
+                "vacHigh": false            # Suck more!!!!
+            }
+        },
+        "enabled": true,                    # Enable this schedule
+        "start": {
+            "day": [1, 3, 5],               # Day of week, seems 1=Monday
+            "hour": 9,                      # Hour of starting time
+            "min": 0                        # Minute of starting time
+        },
+        "type": 0                           # No clue what types there are. Cleaning normally is 0
+    }
+    :return: 
+    '''
+    def set_cleaning_schedule(self, start_times_with_params):
+        state = {"cleanSchedule2": start_times_with_params}
+        self.send_property(state)
+
+    # Get state
+
+    def get_languages(self):
+        return self.state['langs']
+
+    def get_cleaning_schedule(self):
+        return self.state['cleaningSchedule2']
+
+    def get_stop_on_full_bin(self):
+        return self.state['binPause']
+
+    def get_passes(self):
+        if self.state['noAutoPasses']:
+            return 'Automatic'
+        else:
+            if self.state['twoPass']:
+                return 'Two passes'
+            else:
+                return 'Single pass'
+
+    def get_mapping_enabled(self):
+        if not self.state['mapUploadAllowed']:
+            return False
+        else:
+            if self.state['pmapLearningAllowed']:
+                return True
+        return False
+
+    def get_total_state(self):
+        return self.state
+
+    def get_bin_state(self):
+        if self.state['bin']['present'] == 0:
+            return "Not present"
+        if not self.state['cap']['binFullDetect'] == 1:
+            return "Present"
+        else:
+            if self.state['bin']['full'] == 0:
+                return "Not full"
+            else:
+                return "Full"
+
+    def get_battery_level(self):
+        return self.state['batPct']
+
+    def get_name(self):
+        return self.state['name']
+
+    def get_mission_name(self):
+        return self.state['cleanMissionStatus']['cycle']
+
+    def get_mission_state(self):
+        return self.state['cleanMissionStatus']['phase']
+
+    '''
+    When you look at the base:
+    (0,0) is a rough meter in front of the base
+    (-x,0) is behind (0,0), can be behind the base
+    (0,-x) is to the right of the base
+    Theta: 
+    0 is facing away from base
+    -90 is facing left from base (when you look at base)
+    90 is facing right from base
+    '''
+    def get_position(self):
+        if 'pose' in self.state:
+            return self.state['pose']
+        else:
+            return {'point': {'x': 0, 'y': 0}, 'theta': 0}
+
+    # Commands
 
     def start_training(self):
         if self.state['pmapLearningAllowed']:
@@ -170,11 +308,29 @@ class Roomba(object):
         else:
             return False
 
-    def start_cleaning(self):
+    def start_clean(self):
         self.send_command('clean')
+
+    def quick_clean(self):
+        self.send_command('quick')
+
+    def spot_clean(self):
+        self.send_command('spot')
 
     def stop(self):
         self.send_command('stop')
 
     def pause(self):
         self.send_command('pause')
+
+    def resume(self):
+        self.send_command('resume')
+
+    def dock(self):
+        self.send_command('dock')
+
+    def locate_with_beep(self):
+        self.send_command('find')
+
+    def factory_reset(self):
+        self.send_command('wipe')

@@ -1,0 +1,81 @@
+Commands:
+    find: Roomba plays a tone to be located easily
+        { "command": "find", "time": 1553108312, "initiator": "localApp" }
+    train: Scout the area and remember it (Needs PMAPs to be enabled)
+        { "command": "train", "time": 1553112965, "initiator": "localApp" }
+    wipe: Resets Roomba to factory settings
+        { "command": "wipe", "time": 1553115393, "initiator": "localApp" }
+    start: Start cleaning the whole area
+        { "command": "start", "time": 1553114393, "initiator": "localApp" }
+    stop: Stops the current cleaning job
+        { "command": "stop", "time": 1553115393, "initiator": "localApp" }
+    pause: Pauses the current cleaning job
+        { "command": "pause", "time": 1553115393, "initiator": "localApp" }
+    resume: Resume current cleaning job
+        { "command": "resume", "time": 1553115393, "initiator": "localApp" }
+    dock: Return to charging base
+        { "command": "dock", "time": 1553115393, "initiator": "localApp" }
+    quick: TODO TEST
+    spot: TODO TEST
+
+
+
+
+Settings:
+    cleaning Schedule:
+        {
+        "state": {
+            "cleanSchedule2": [
+            {
+                "cmd": {
+                    "command": "start",             #Dont know if this is modifyable
+                    "params": {
+                        "carpetBoost": false,       #Enable vacuum boost on carpets
+                        "noAutoPasses": false,      #Disable automatic decision whether to clean an area twice
+                        "openOnly": true,           #Do not clean edges and close to walls
+                        "twoPass": false,           #Clean every area twice
+                        "vacHigh": false            #Suck more!!!!
+                    }
+                },
+                "enabled": true,                    #Enable this schedule
+                "start": {
+                    "day": [1, 3, 5],               #Day of week, seems 1=Monday
+                    "hour": 9,                      #Hour of starting time
+                    "min": 0                        #Minute of starting time
+                },
+                "type": 0                           #No clue
+            }
+            ]
+        }
+        }
+
+    Clean areas twice/once/auto:
+        {
+        "state": {
+            "twoPass": true,                        #true = clean everything twice
+            "noAutoPasses": true                    #Must be true, if not auto; false for auto decision
+        }
+        }
+    Enable PMAP mapping of the area (!!This would allow upload of the data to cloud, if not prevented by firewalls!!):
+        {
+        "state" : {
+            "mapUploadAllowed": true,               #Must be true if pmapLearningAllowed shall be true
+            pmapLearningAllowed: true               #Learn the area
+        }
+        }
+    Pause Job on full bin:
+        { "state" : { "binPause" : true } }
+    Set language:
+        { "state" : { "language" : 2 } }            #Language number is determined from initial message on connect
+    Disable Audio: TODO TO BE TESTED
+        { "audio" : { "active": false } }
+
+
+
+
+It sends map to /mapUpload URL
+
+TODO:
+    - How to get the map!!!
+    - Divide map
+    - Write code
