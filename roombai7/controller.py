@@ -1,5 +1,5 @@
-from roomba import Roomba
-from mapper import Mapper
+from roomba.roomba import Roomba
+from roomba.mapper import Mapper
 
 
 class Controller:
