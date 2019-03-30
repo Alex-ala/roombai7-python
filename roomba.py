@@ -95,6 +95,7 @@ class Roomba(object):
         self.mqtt_client = None
         self.state = dict()
         self.connected = False
+        self.on_state_change = list()
 
     '''Initiate MQTT connection'''
     def connect(self):
@@ -134,13 +135,16 @@ class Roomba(object):
         self.disconnect()
         self.connect()
 
+    def add_state_handler(self, handler):
+        self.on_state_change.append(handler)
+
     def on_message(self, client, userdata, message):
-        print(message.payload.decode('UTF-8'))
         try:
             new_state = json.loads(message.payload.decode(' UTF-8'))['state']['reported']
             self.state.update(new_state)
         except Exception as e:
-            print('Error reading message from robot: '+str(e)+'---'+message.payload.decode(' UTF-8'))
+            print('Error reading message from robot: '+str(e)+' --- '+message.payload.decode(' UTF-8'))
+        self.on_state_change_handler()
 
     def on_connect(self, client, userdata, flags, rc):
         if rc != 0:
@@ -151,6 +155,10 @@ class Roomba(object):
 
     def on_disconnect(self, client, userdata, rc):
         self.state = self.states["disconnected"]
+
+    def on_state_change_handler(self):
+        for handle in self.on_state_change:
+            handle(self)
 
     def _send_command(self, topic, command):
         message = dict()

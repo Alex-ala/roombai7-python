@@ -1,28 +1,20 @@
 from roomba import Roomba
-from time import sleep
-import json
-from pprint import pprint
-
-roomba = Roomba("10.4.0.17", "44EF51470B0843E2B2529E9F50A9C4C5", ":1:1553325425:NLnNlriixEfLF0bE")
-roomba.connect()
-sleep(10)
-# roomba.set_internal_mapping(True)
-# roomba.set_language('en-US')
-# roomba.set_stop_on_full_bin(True)
-# sleep(30)
-# roomba.start_training()
-# sleep(5)
-sleep(5)
-roomba.disconnect()
+from mapper import Mapper
 
 
-# while True:
-#     topic=input('topic:')
-#     command=dict()
-#     command['initiator']='localApp'
-#     command['time'] = int(time())
-#     if topic == 'delta':
-#         command['command'] = json.loads(input('options'))
-#     else:
-#         command['command']=input('command:')
-#     roomba.send_command(topic, command)
+class Controller:
+    def __init__(self, ip, blid, password, map_offset=None):
+        self.map_offset = map_offset
+        if self.map_offset is None:
+            self.map_offset = {'x': 0, 'y': 0}
+        self.roomba = Roomba(ip, blid, password)
+        self.enable_mapping("/tmp/bind.png")
+        self.roomba.connect()
+        self.mapper = None
+
+    def enable_mapping(self, image_drawmap_path, image_floorplan_path=None):
+        self.mapper = Mapper(image_drawmap_path,
+                             image_floorplan_path=image_floorplan_path,
+                             offset=self.map_offset)
+        self.mapper.reset_map()
+        self.roomba.add_state_handler(self.mapper.update_map)
