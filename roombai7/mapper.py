@@ -22,6 +22,8 @@ class Mapper(object):
         self.drawmap.save(self.drawmap_path)
 
     def update_map(self, roomba):
+        if roomba.get_mission_state() != 'run':
+            return
         real_pos = roomba.get_position()
         pos = (real_pos['point']['x'] + self.offset[0],
                real_pos['point']['y'] + self.offset[1])

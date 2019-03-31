@@ -8,7 +8,6 @@ class Controller:
         if self.map_offset is None:
             self.map_offset = {'x': 0, 'y': 0}
         self.roomba = Roomba(ip, blid, password)
-        self.enable_mapping("/tmp/bind.png")
         self.mapper = None
 
     def enable_mapping(self, image_drawmap_path, image_floorplan_path=None):
