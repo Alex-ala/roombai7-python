@@ -3,17 +3,14 @@ from roombai7.mapper import Mapper
 
 
 class Controller:
-    def __init__(self, ip, blid, password, map_offset=None):
-        self.map_offset = map_offset
-        if self.map_offset is None:
-            self.map_offset = {'x': 0, 'y': 0}
+    def __init__(self, ip, blid, password):
         self.roomba = Roomba(ip, blid, password)
         self.mapper = None
 
-    def enable_mapping(self, image_drawmap_path, image_floorplan_path=None):
+    def enable_mapping(self, image_drawmap_path, image_floorplan_path=None,  map_offset={'x': 0, 'y': 0}):
         self.mapper = Mapper(image_drawmap_path,
                              image_floorplan_path=image_floorplan_path,
-                             offset=self.map_offset)
+                             offset=map_offset)
         self.mapper.reset_map()
         self.roomba.add_state_handler(self.mapper.update_map)
 

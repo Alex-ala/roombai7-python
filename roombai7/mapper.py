@@ -18,7 +18,7 @@ class Mapper(object):
 
     def reset_map(self):
         self.drawmap = self.floorplan.copy()
-        self.draw_circle((0, 0), (30, 144, 255, 255))
+        self.draw_circle((0 + self.offset[0], 0 + self.offset[1]), (30, 144, 255, 255))
         self.drawmap.save(self.drawmap_path)
 
     def update_map(self, roomba):
