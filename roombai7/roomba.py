@@ -240,56 +240,73 @@ class Roomba(object):
     # Get state
 
     def get_languages(self):
-        return self.state['langs']
+        return self.state.get('langs')
 
     def get_cleaning_schedule(self):
-        return self.state['cleaningSchedule2']
+        return self.state.get('cleaningSchedule2')
 
     def get_stop_on_full_bin(self):
-        return self.state['binPause']
+        return self.state.get('binPause')
 
     def get_passes(self):
-        if self.state['noAutoPasses']:
-            return 'Automatic'
-        else:
-            if self.state['twoPass']:
-                return 'Two passes'
+        try:
+            if self.state['noAutoPasses']:
+                return 'Automatic'
             else:
-                return 'Single pass'
+                if self.state['twoPass']:
+                    return 'Two passes'
+                else:
+                    return 'Single pass'
+        except KeyError:
+            return None
 
     def get_mapping_enabled(self):
-        if not self.state['mapUploadAllowed']:
+        try:
+            if not self.state['mapUploadAllowed']:
+                return False
+            else:
+                if self.state['pmapLearningAllowed']:
+                    return True
+        except KeyError:
             return False
-        else:
-            if self.state['pmapLearningAllowed']:
-                return True
         return False
 
     def get_total_state(self):
         return self.state
 
     def get_bin_state(self):
-        if self.state['bin']['present'] == 0:
-            return "Not present"
-        if not self.state['cap']['binFullDetect'] == 1:
-            return "Present"
-        else:
-            if self.state['bin']['full'] == 0:
-                return "Not full"
+        try:
+            if self.state['bin']['present'] == 0:
+                return "Not present"
+            if not self.state['cap']['binFullDetect'] == 1:
+                return "Present"
             else:
-                return "Full"
+                if self.state['bin']['full'] == 0:
+                    return "Not full"
+                else:
+                    return "Full"
+        except KeyError:
+            return None
 
     def get_battery_level(self):
-        return self.state['batPct']
+        return self.state.get('batPct', 0)
 
     def get_name(self):
-        return self.state['name']
+        return self.state.get('name', 'roomba')
 
     def get_mission_name(self):
-        return self.state['cleanMissionStatus']['cycle']
+        try:
+            mission = self.state['cleanMissionStatus']['cycle']
+        except KeyError:
+            mission = None
+        return mission
 
     def get_mission_state(self):
-        return self.state['cleanMissionStatus']['phase']
+        try:
+            mission = self.state['cleanMissionStatus']['phase']
+        except KeyError:
+            mission = None
+        return mission
 
     '''
     When you look at the base:
@@ -310,10 +327,13 @@ class Roomba(object):
     # Commands
 
     def start_training(self):
-        if self.state['pmapLearningAllowed']:
-            self.send_command('train')
-            return True
-        else:
+        try:
+            if self.state['pmapLearningAllowed']:
+                self.send_command('train')
+                return True
+            else:
+                return False
+        except KeyError:
             return False
 
     def start_clean(self):
